@@ -13,4 +13,5 @@ class RefreshAvailabilityEvent(str, Enum):
 
 @dataclass(frozen=True)
 class RootMessage:
+    andgo_correlation_id: str
     event_type: RefreshAvailabilityEvent

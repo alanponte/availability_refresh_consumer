@@ -43,7 +43,6 @@ class AppointmentScheduledMessage(RootMessage):
 class AppointmentServiceWindow:
     """A service window represents one or more jobs being performed within an asset
     (e.g. service bay)."""
-    andgo_correlation_id: str
     start_time: int
     service_completion_time: int
     end_time: int

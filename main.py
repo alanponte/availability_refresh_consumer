@@ -4,8 +4,17 @@ from typing import Optional, List
 
 from logger import get_logger
 from message import RootMessage, RefreshAvailabilityEvent
-from message.appointment import AppointmentCanceledMessage, AppointmentScheduledMessage, AppointmentServiceWindow
-from message.asset import StoreAssetUpdatedEvent, StoreAssetEventAction, StoreAssetType, AssetUpdatedMessage
+from message.appointment import (
+    AppointmentCanceledMessage,
+    AppointmentScheduledMessage,
+    AppointmentServiceWindow
+)
+from message.asset import (
+    StoreAssetUpdatedEvent,
+    StoreAssetEventAction,
+    StoreAssetType,
+    AssetUpdatedMessage
+)
 from sns.sns import SNS
 from utils import create_random_uuid_str
 
@@ -50,13 +59,13 @@ def _create_availability_refresh_sns_message(
 def _send_appointment_scheduled_message(sns_client: SNS):
     """Send a test `AppointmentScheduled` message to the SNS topic."""
     appointment_scheduled_message = AppointmentScheduledMessage(
+        andgo_correlation_id=create_random_uuid_str(),
         event_type=RefreshAvailabilityEvent.APPOINTMENT_SCHEDULED,
         user_id=create_random_uuid_str(),
         fleet_id=create_random_uuid_str(),
         store_id=create_random_uuid_str(),
         service_windows=[
             AppointmentServiceWindow(
-                andgo_correlation_id=create_random_uuid_str(),
                 start_time=1698920446,
                 service_completion_time=1698924046,
                 end_time=1698960046,
@@ -127,6 +136,7 @@ def _send_asset_updated_message(sns_client: SNS):
 def _send_appointment_cancelled_message(sns_client: SNS):
     """Send a test `AppointmentCanceledMessage` to the SNS topic."""
     appointment_canceled_message = AppointmentCanceledMessage(
+        andgo_correlation_id=create_random_uuid_str(),
         event_type=RefreshAvailabilityEvent.APPOINTMENT_CANCELED,
         user_id=create_random_uuid_str(),
         fleet_id=create_random_uuid_str(),

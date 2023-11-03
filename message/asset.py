@@ -20,7 +20,6 @@ class StoreAssetEventAction(str, Enum):
 @dataclass(frozen=True)
 class AssetUpdatedMessage(RootMessage):
     """A message to send to SNS to indicate that asset(s) at a store has been updated."""
-    andgo_correlation_id: str
     store_id: str
     user_id: str
     fleet_id: str
