@@ -1,12 +1,11 @@
 from dataclasses import dataclass, asdict
 from enum import Enum
 
-import boto3
-import uuid
-from typing import Optional, List, Dict
+from typing import Optional, List
 
 from logger import get_logger
 from sns.sns import SNS
+from utils import create_random_uuid_str
 
 _LOGGER = get_logger()
 
@@ -26,8 +25,9 @@ class RefreshAvailabilitySubject(str, Enum):
     ASSET_UPDATE = 'ASSET_UPDATE'
 
 
-def _create_random_uuid_str() -> str:
-    return str(uuid.uuid4())
+class StoreAssetType(str, Enum):
+    """Represents a type of asset at a store."""
+    SERVICE_BAY = 'SERVICE_BAY'
 
 
 @dataclass(frozen=True)
@@ -81,6 +81,22 @@ class AppointmentServiceWindow:
     availability_asset: str
 
 
+@dataclass(frozen=True)
+class AssetUpdatedMessage:
+    """A message to send to SNS to indicate that asset(s) at a store has been updated."""
+    andgo_correlation_id: str
+    store_id: str
+    user_id: str
+    fleet_id: str
+    assets: List['StoreAsset']
+
+
+@dataclass(frozen=True)
+class StoreAsset:
+    id: str
+    type: StoreAssetType
+
+
 def _create_availability_refresh_sns_message(
         andgo_correlation_id: str,
         store_id: str,
@@ -101,17 +117,17 @@ def _create_availability_refresh_sns_message(
 def _send_appointment_scheduled_message(sns_client: SNS):
     """Send a test `AppointmentScheduled` message to the SNS topic."""
     appointment_scheduled_message = AppointmentScheduledMessage(
-        user_id=_create_random_uuid_str(),
-        fleet_id=_create_random_uuid_str(),
-        store_id=_create_random_uuid_str(),
+        user_id=create_random_uuid_str(),
+        fleet_id=create_random_uuid_str(),
+        store_id=create_random_uuid_str(),
         service_windows=[
             AppointmentServiceWindow(
-                andgo_correlation_id=_create_random_uuid_str(),
+                andgo_correlation_id=create_random_uuid_str(),
                 start_time=1698920446,
                 service_completion_time=1698924046,
                 end_time=1698960046,
-                availability_asset=_create_random_uuid_str(),
-                jobs=[_create_random_uuid_str(), _create_random_uuid_str()]
+                availability_asset=create_random_uuid_str(),
+                jobs=[create_random_uuid_str(), create_random_uuid_str()]
             )
         ]
     )
@@ -127,12 +143,12 @@ def _send_appointment_scheduled_message(sns_client: SNS):
 def _send_availability_requested_message(sns_client: SNS):
     """Send a test `AvailabilityRequested` message to the SNS topic."""
     availability_requested_message = AvailabilityRequestedMessage(
-        andgo_correlation_id=_create_random_uuid_str(),
-        user_id=_create_random_uuid_str(),
-        fleet_id=_create_random_uuid_str(),
-        store_id=_create_random_uuid_str(),
+        andgo_correlation_id=create_random_uuid_str(),
+        user_id=create_random_uuid_str(),
+        fleet_id=create_random_uuid_str(),
+        store_id=create_random_uuid_str(),
         vin='2HHFD55707H200235',
-        jobs=[_create_random_uuid_str(), _create_random_uuid_str()],
+        jobs=[create_random_uuid_str(), create_random_uuid_str()],
         requested_day='2023-11-02'
     )
     print(f'Publishing `AvailabilityRequestedMessage` to topic')
@@ -146,6 +162,27 @@ def _send_availability_requested_message(sns_client: SNS):
         f'Response: {response}')
 
 
+def _send_asset_updated_message(sns_client: SNS):
+    """Send a test `AssetUpdated` message to the SNS topic."""
+    asset_updated_message = AssetUpdatedMessage(
+        andgo_correlation_id=create_random_uuid_str(),
+        user_id=create_random_uuid_str(),
+        fleet_id=create_random_uuid_str(),
+        store_id=create_random_uuid_str(),
+        assets=[StoreAsset(id=create_random_uuid_str(), type=StoreAssetType.SERVICE_BAY)]
+    )
+
+    print(f'Publishing `AssetUpdatedMessage` tp topic')
+    response = sns_client.publish(
+        subject=RefreshAvailabilitySubject.ASSET_UPDATE,
+        message=asdict(asset_updated_message)
+    )
+
+    print(
+        f'Successfully published message {asset_updated_message} to topic: {AVAILABILITY_REFRESH_SNS_TOPIC_ARN} '
+        f'Response: {response}')
+
+
 def main():
     print(f'Creating SNS client for topic {AVAILABILITY_REFRESH_SNS_TOPIC_ARN}')
     sns_client = SNS(AVAILABILITY_REFRESH_SNS_TOPIC_ARN)
@@ -155,6 +192,8 @@ def main():
 
     # Availability Requested
     _send_availability_requested_message(sns_client)
+
+    _send_asset_updated_message(sns_client)
 
 
 if __name__ == '__main__':
