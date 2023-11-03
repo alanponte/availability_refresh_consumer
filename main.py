@@ -1,7 +1,7 @@
 from dataclasses import dataclass, asdict
 from enum import Enum
 
-from typing import Optional, List
+from typing import Optional, List, Union
 
 from logger import get_logger
 from sns.sns import SNS
@@ -16,8 +16,8 @@ AVAILABILITY_REFRESH_SNS_TOPIC = 'availability-update-dev.fifo'
 AVAILABILITY_REFRESH_SNS_TOPIC_ARN = 'arn:aws:sns:us-west-2:612996534754:availability-update-dev.fifo'
 
 
-class RefreshAvailabilitySubject(str, Enum):
-    """An SNS Subject for availability messages."""
+class RefreshAvailabilityEvent(str, Enum):
+    """An SNS event for availability messages."""
     APPOINTMENT_SCHEDULED = 'APPOINTMENT_SCHEDULED'
     APPOINTMENT_CANCELED = 'APPOINTMENT_CANCELED'
     APPOINTMENT_RESCHEDULED = 'APPOINTMENT_RESCHEDULED'
@@ -38,7 +38,12 @@ class StoreAssetEventAction(str, Enum):
 
 
 @dataclass(frozen=True)
-class AppointmentScheduledMessage:
+class RootMessage:
+    event_type: RefreshAvailabilityEvent
+
+
+@dataclass(frozen=True)
+class AppointmentScheduledMessage(RootMessage):
     """Message to send to SNS when an appointment has been created.
 
     Example:
@@ -65,7 +70,15 @@ class AppointmentScheduledMessage:
 
 
 @dataclass(frozen=True)
-class AvailabilityRequestedMessage:
+class AppointmentCanceledMessage(RootMessage):
+    user_id: str
+    fleet_id: str
+    store_id: str
+    appointment_id: str
+
+
+@dataclass(frozen=True)
+class AvailabilityRequestedMessage(RootMessage):
     """Message to send to SNS for a fetch availability request."""
     andgo_correlation_id: str
     requested_day: str
@@ -89,7 +102,7 @@ class AppointmentServiceWindow:
 
 
 @dataclass(frozen=True)
-class AssetUpdatedMessage:
+class AssetUpdatedMessage(RootMessage):
     """A message to send to SNS to indicate that asset(s) at a store has been updated."""
     andgo_correlation_id: str
     store_id: str
@@ -125,6 +138,7 @@ def _create_availability_refresh_sns_message(
 def _send_appointment_scheduled_message(sns_client: SNS):
     """Send a test `AppointmentScheduled` message to the SNS topic."""
     appointment_scheduled_message = AppointmentScheduledMessage(
+        event_type=RefreshAvailabilityEvent.APPOINTMENT_SCHEDULED,
         user_id=create_random_uuid_str(),
         fleet_id=create_random_uuid_str(),
         store_id=create_random_uuid_str(),
@@ -139,11 +153,11 @@ def _send_appointment_scheduled_message(sns_client: SNS):
             )
         ]
     )
-    print(f'Publishing `AppointmentScheduledMessage` to topic')
+    print(f'Publishing `AppointmentScheduledMessage` to topic {AVAILABILITY_REFRESH_SNS_TOPIC_ARN}')
     response = sns_client.publish(
-        subject=RefreshAvailabilitySubject.APPOINTMENT_SCHEDULED,
+        subject=RefreshAvailabilityEvent.APPOINTMENT_SCHEDULED,
         message=asdict(appointment_scheduled_message),
-        message_group_id=1
+        message_group_id='1'
     )
     print(f'Successfully published message {appointment_scheduled_message} to topic: {AVAILABILITY_REFRESH_SNS_TOPIC_ARN} '
           f'Response: {response}')
@@ -152,6 +166,7 @@ def _send_appointment_scheduled_message(sns_client: SNS):
 def _send_availability_requested_message(sns_client: SNS):
     """Send a test `AvailabilityRequested` message to the SNS topic."""
     availability_requested_message = AvailabilityRequestedMessage(
+        event_type=RefreshAvailabilityEvent.AVAILABILITY_REQUEST,
         andgo_correlation_id=create_random_uuid_str(),
         user_id=create_random_uuid_str(),
         fleet_id=create_random_uuid_str(),
@@ -160,11 +175,11 @@ def _send_availability_requested_message(sns_client: SNS):
         jobs=[create_random_uuid_str(), create_random_uuid_str()],
         requested_day='2023-11-02'
     )
-    print(f'Publishing `AvailabilityRequestedMessage` to topic')
+    print(f'Publishing `AvailabilityRequestedMessage` to topic {AVAILABILITY_REFRESH_SNS_TOPIC_ARN}')
     response = sns_client.publish(
-        subject=RefreshAvailabilitySubject.AVAILABILITY_REQUEST,
+        subject=RefreshAvailabilityEvent.AVAILABILITY_REQUEST,
         message=asdict(availability_requested_message),
-        message_group_id=2
+        message_group_id='2'
     )
 
     print(
@@ -175,6 +190,7 @@ def _send_availability_requested_message(sns_client: SNS):
 def _send_asset_updated_message(sns_client: SNS):
     """Send a test `AssetUpdated` message to the SNS topic."""
     asset_updated_message = AssetUpdatedMessage(
+        event_type=RefreshAvailabilityEvent.ASSET_UPDATE,
         andgo_correlation_id=create_random_uuid_str(),
         user_id=create_random_uuid_str(),
         fleet_id=create_random_uuid_str(),
@@ -187,15 +203,36 @@ def _send_asset_updated_message(sns_client: SNS):
         ]
     )
 
-    print(f'Publishing `AssetUpdatedMessage` tp topic')
+    print(f'Publishing `AssetUpdatedMessage` to topic')
     response = sns_client.publish(
-        subject=RefreshAvailabilitySubject.ASSET_UPDATE,
+        subject=RefreshAvailabilityEvent.ASSET_UPDATE,
         message=asdict(asset_updated_message),
-        message_group_id=3
+        message_group_id='3'
     )
 
     print(
         f'Successfully published message {asset_updated_message} to topic: {AVAILABILITY_REFRESH_SNS_TOPIC_ARN} '
+        f'Response: {response}')
+
+
+def _send_appointment_cancelled_message(sns_client: SNS):
+    """Send a test `AppointmentCanceledMessage` to the SNS topic."""
+    appointment_canceled_message = AppointmentCanceledMessage(
+        event_type=RefreshAvailabilityEvent.APPOINTMENT_CANCELED,
+        user_id=create_random_uuid_str(),
+        fleet_id=create_random_uuid_str(),
+        store_id=create_random_uuid_str(),
+        appointment_id=create_random_uuid_str()
+    )
+    print(f'Publishing `AppointmentCanceledMessage` to topic {AVAILABILITY_REFRESH_SNS_TOPIC_ARN}')
+    response = sns_client.publish(
+        subject=RefreshAvailabilityEvent.APPOINTMENT_CANCELED,
+        message=asdict(appointment_canceled_message),
+        message_group_id='4'
+    )
+
+    print(
+        f'Successfully published message {appointment_canceled_message} to topic: {AVAILABILITY_REFRESH_SNS_TOPIC_ARN} '
         f'Response: {response}')
 
 
@@ -205,6 +242,9 @@ def main():
 
     # Appointment Scheduled
     _send_appointment_scheduled_message(sns_client)
+
+    # Appointment Canceled
+    _send_appointment_cancelled_message(sns_client)
 
     # Availability Requested
     _send_availability_requested_message(sns_client)

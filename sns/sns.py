@@ -35,7 +35,7 @@ class SNS:
         self._sns_client = SNS_CLIENT
         self._topic_arn = topic_arn
 
-    def publish(self, subject: str, message: Dict, message_group_id: int) -> Dict:
+    def publish(self, subject: str, message: Dict, message_group_id: str) -> Dict:
         """Publish the message to SNS topic
 
         :param subject: Subject of the message.
