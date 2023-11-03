@@ -35,7 +35,7 @@ class SNS:
         self._sns_client = SNS_CLIENT
         self._topic_arn = topic_arn
 
-    def publish(self, subject: str, message: Dict, message_group_id: str) -> Dict:
+    def publish(self, message: Dict, message_group_id: str) -> Dict:
         """Publish the message to SNS topic
 
         :param subject: Subject of the message.
@@ -45,7 +45,6 @@ class SNS:
         try:
             response = self._sns_client.publish(
                 TopicArn=self._topic_arn,
-                Subject=subject,
                 Message=json.dumps(message),
                 MessageGroupId=message_group_id,
                 # todo: What should this parameter be?
@@ -55,7 +54,7 @@ class SNS:
             if not response:
                 raise SnsClientException(
                     message=f'No Response From SNS publish to topic {self._topic_arn}, '
-                            f'subject: {subject}, message: {message}'
+                            f'Message: {message}'
                 )
             return response
         except Exception as e:
