@@ -30,6 +30,13 @@ class StoreAssetType(str, Enum):
     SERVICE_BAY = 'SERVICE_BAY'
 
 
+class StoreAssetEventAction(str, Enum):
+    """Represents an action upon a store's asset."""
+    DELETED = 'DELETED'
+    HOURS_UPDATED = 'HOURS_UPDATED'
+    ADDED = 'ADDED'
+
+
 @dataclass(frozen=True)
 class AppointmentScheduledMessage:
     """Message to send to SNS when an appointment has been created.
@@ -88,13 +95,14 @@ class AssetUpdatedMessage:
     store_id: str
     user_id: str
     fleet_id: str
-    assets: List['StoreAsset']
+    assets: List['StoreAssetUpdatedEvent']
 
 
 @dataclass(frozen=True)
-class StoreAsset:
+class StoreAssetUpdatedEvent:
     id: str
     type: StoreAssetType
+    action: StoreAssetEventAction
 
 
 def _create_availability_refresh_sns_message(
@@ -134,7 +142,8 @@ def _send_appointment_scheduled_message(sns_client: SNS):
     print(f'Publishing `AppointmentScheduledMessage` to topic')
     response = sns_client.publish(
         subject=RefreshAvailabilitySubject.APPOINTMENT_SCHEDULED,
-        message=asdict(appointment_scheduled_message)
+        message=asdict(appointment_scheduled_message),
+        message_group_id=1
     )
     print(f'Successfully published message {appointment_scheduled_message} to topic: {AVAILABILITY_REFRESH_SNS_TOPIC_ARN} '
           f'Response: {response}')
@@ -154,7 +163,8 @@ def _send_availability_requested_message(sns_client: SNS):
     print(f'Publishing `AvailabilityRequestedMessage` to topic')
     response = sns_client.publish(
         subject=RefreshAvailabilitySubject.AVAILABILITY_REQUEST,
-        message=asdict(availability_requested_message)
+        message=asdict(availability_requested_message),
+        message_group_id=2
     )
 
     print(
@@ -169,13 +179,19 @@ def _send_asset_updated_message(sns_client: SNS):
         user_id=create_random_uuid_str(),
         fleet_id=create_random_uuid_str(),
         store_id=create_random_uuid_str(),
-        assets=[StoreAsset(id=create_random_uuid_str(), type=StoreAssetType.SERVICE_BAY)]
+        assets=[
+            StoreAssetUpdatedEvent(
+                id=create_random_uuid_str(), type=StoreAssetType.SERVICE_BAY,
+                action=StoreAssetEventAction.ADDED
+            )
+        ]
     )
 
     print(f'Publishing `AssetUpdatedMessage` tp topic')
     response = sns_client.publish(
         subject=RefreshAvailabilitySubject.ASSET_UPDATE,
-        message=asdict(asset_updated_message)
+        message=asdict(asset_updated_message),
+        message_group_id=3
     )
 
     print(
@@ -193,6 +209,7 @@ def main():
     # Availability Requested
     _send_availability_requested_message(sns_client)
 
+    # Asset Updated
     _send_asset_updated_message(sns_client)
 
 
